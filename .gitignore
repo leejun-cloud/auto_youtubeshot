@@ -1,0 +1,37 @@
+# === 의존성 ===
+node_modules/
+
+# === Next.js 빌드 캐시 ===
+.next/
+
+# === 배포/설치파일 산출물 ===
+dist/
+dist-win/
+dist-mac/
+dist-package/
+dist-installers/
+runtime/
+runtime-win/
+runtime-mac/
+_node-arm64/
+_node-x64/
+.node-cache-*/
+.node-dl-*/
+youtube-shots-*.zip
+installer.nsi
+.dmg-stage/
+.dmg-stage2/
+
+# === 앱 생성물(런타임 출력) ===
+public/reels/
+public/tts/
+public/youtube-shots-app.zip
+
+# === 기타 대용량/임시 ===
+zifsajiH
+
+# === OS ===
+.DS_Store
+
+# 중첩 git repo(스트레이)
+youtube-shorts/

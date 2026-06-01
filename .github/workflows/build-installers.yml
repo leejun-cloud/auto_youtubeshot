@@ -1,0 +1,54 @@
+name: Build Installers
+
+# 버전 태그를 push하면 Windows Setup.exe + macOS .dmg 를 자동으로 만들어
+# GitHub Release에 첨부한다.
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# makensis(NSIS) + create-dmg + curl 이 모두 있는 macOS 러너에서 둘 다 빌드한다.
+# (Windows 설치파일은 NSIS로 macOS에서 크로스빌드 가능)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}     # Actions 탭에서 수동 실행(태그 없이 테스트)
+
+permissions:
+  contents: write           # Release 생성/첨부
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install installer tools
+        run: brew install nsis create-dmg
+
+      # 1) 배포 폴더(포터블 런타임 + 소스) 준비
+      - name: Build dist folders (win + mac)
+        run: |
+          npm run build:win     # → dist-win/
+          npm run build:mac     # → dist-mac/
+
+      # 2) 진짜 설치파일로 포장
+      - name: Package installers
+        run: node scripts/build-installers.mjs all
+
+      - name: Show outputs
+        run: ls -lh dist-installers
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers
+          path: dist-installers/**
+
+      # 3) 태그 push일 때만 Release에 첨부
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-installers/*
+          generate_release_notes: true
