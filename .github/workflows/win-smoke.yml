@@ -1,0 +1,44 @@
+name: Windows Smoke Test
+
+# 실제 windows-latest 러너에서 "번들 Node + npm install" 이 동작하는지 검증.
+# (Mac에서 났던 npm 유실 버그와 동일한 실패 지점을 진짜 윈도우로 확인)
+on:
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build dist-win (포터블 Node 번들 포함)
+        run: npm run build:win
+
+      - name: 번들 npm 존재 확인
+        shell: pwsh
+        run: |
+          Get-ChildItem dist-win\runtime | Select-Object Name
+          if (!(Test-Path "dist-win\runtime\node_modules\npm\bin\npm-cli.js")) {
+            throw "번들 npm 유실 (npm-cli.js 없음)"
+          }
+          Write-Host "OK: 번들 npm 존재"
+
+      - name: 번들 Node 로 실제 npm install (핵심 실패지점 재현)
+        shell: pwsh
+        working-directory: dist-win
+        run: |
+          $env:PATH = "$PWD\runtime;$env:PATH"
+          & "$PWD\runtime\node.exe" --version
+          & "$PWD\runtime\npm.cmd" --version
+          & "$PWD\runtime\npm.cmd" install --no-audit --no-fund
+
+      - name: Next.js 설치 확인
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist-win\node_modules\next\dist\bin\next")) {
+            throw "next 미설치 — npm install 실패"
+          }
+          Write-Host "OK: next 설치됨 → Windows 번들 npm 정상 동작"
