@@ -40,6 +40,22 @@ export default function Home() {
     setUserImages((prev) => [...prev, ...imgs]);
   };
 
+  const moveImage = (index: number, dir: -1 | 1) => {
+    setUserImages((prev) => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setUserImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const slotLabel = (i: number) => (i === 0 ? '표지' : `카드 ${i}`);
+
   // Video Pipeline Status
   const [isRendering, setIsRendering] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0: Idle, 1: Structuring, 2: Fetching Media, 3: TTS, 4: Remotion Render, 5: Done
@@ -366,22 +382,43 @@ export default function Home() {
                     : `현재 ${userImages.length}장 업로드됨 — 첫 장이 표지로 쓰입니다.`}
                 </p>
                 {userImages.length > 0 && (
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#888' }}>
+                        화살표로 순서를 조정하세요 (위 = 표지 → 카드 순서)
+                      </span>
+                      <button
+                        className="btn"
+                        onClick={() => setUserImages([])}
+                        style={{ fontSize: '12px', padding: '4px 10px' }}
+                      >
+                        모두 지우기
+                      </button>
+                    </div>
                     {userImages.map((src, i) => (
-                      <img
+                      <div
                         key={i}
-                        src={src}
-                        alt={`upload-${i}`}
-                        style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6 }}
-                      />
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '6px', border: '1px solid #333', borderRadius: 8,
+                        }}
+                      >
+                        <img
+                          src={src}
+                          alt={`upload-${i}`}
+                          style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
+                        />
+                        <span style={{ fontWeight: 600, minWidth: 56 }}>{slotLabel(i)}</span>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                          <button className="btn" onClick={() => moveImage(i, -1)} disabled={i === 0}
+                            style={{ padding: '2px 8px' }}>↑</button>
+                          <button className="btn" onClick={() => moveImage(i, 1)} disabled={i === userImages.length - 1}
+                            style={{ padding: '2px 8px' }}>↓</button>
+                          <button className="btn" onClick={() => removeImage(i)}
+                            style={{ padding: '2px 8px' }}>✕</button>
+                        </div>
+                      </div>
                     ))}
-                    <button
-                      className="btn"
-                      onClick={() => setUserImages([])}
-                      style={{ fontSize: '12px', padding: '4px 10px' }}
-                    >
-                      모두 지우기
-                    </button>
                   </div>
                 )}
               </div>
