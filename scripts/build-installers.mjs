@@ -120,6 +120,11 @@ ShowUninstDetails show
 !insertmacro MUI_LANGUAGE "English"
 
 Section "Install"
+  ; 실행 중인 기존 앱(node.exe)을 먼저 종료 → 파일 잠금 해제 (재설치 시 '파일을 열 수 없습니다' 방지)
+  DetailPrint "실행 중인 기존 앱을 종료하는 중..."
+  nsExec::Exec \`powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like '*YouTubeShots*' } | Stop-Process -Force -ErrorAction SilentlyContinue"\`
+  Sleep 1500
+
   SetOutPath "$INSTDIR"
   File /r "${srcDir}/*"
 
@@ -140,6 +145,9 @@ Section "Install"
 SectionEnd
 
 Section "Uninstall"
+  ; 실행 중이면 먼저 종료 (삭제 시 파일 잠금 방지)
+  nsExec::Exec \`powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like '*YouTubeShots*' } | Stop-Process -Force -ErrorAction SilentlyContinue"\`
+  Sleep 1500
   Delete "$SMPROGRAMS\\${APP_DISPLAY}\\${APP_DISPLAY}.lnk"
   RMDir  "$SMPROGRAMS\\${APP_DISPLAY}"
   Delete "$DESKTOP\\${APP_DISPLAY}.lnk"
