@@ -233,7 +233,14 @@ export async function POST(request: NextRequest) {
       metadata,
     });
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : '비디오 생성 파이프라인 처리 중 오류가 발생했습니다.';
+    let errorMsg = error instanceof Error ? error.message : '비디오 생성 파이프라인 처리 중 오류가 발생했습니다.';
+    // Gemini 할당량 초과(429)를 초보자용 한국어 안내로 변환 (이미 변환됐으면 유지)
+    const isQuota = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED') || /quota/i.test(errorMsg);
+    if (isQuota && !errorMsg.includes('할당량')) {
+      errorMsg =
+        'Gemini 무료 사용량(할당량)을 초과했습니다. 잠시(1~2분) 후 다시 시도하거나, ' +
+        'Google AI Studio(https://aistudio.google.com)에서 결제를 등록해 할당량을 늘려주세요.';
+    }
     console.error('[generate] Error in pipeline:', error);
     currentRenderStatus = {
       step: 'error',

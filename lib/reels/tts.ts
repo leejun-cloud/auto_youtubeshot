@@ -6,6 +6,50 @@ import { convertNumerals } from './korean-numerals';
 const DEFAULT_MODEL = 'gemini-2.5-flash-preview-tts';
 const DEFAULT_VOICE = 'Kore';
 
+const QUOTA_MESSAGE =
+  'Gemini 무료 사용량(할당량)을 초과했습니다. 잠시(1~2분) 후 다시 시도하거나, ' +
+  'Google AI Studio(https://aistudio.google.com)에서 결제를 등록해 할당량을 늘려주세요. ' +
+  '무료 등급은 음성(TTS) 호출 수가 매우 제한적입니다.';
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const isQuotaError = (e: unknown): boolean => {
+  const s = `${(e as { message?: string })?.message ?? ''} ${(e as { status?: string })?.status ?? ''} ${String(e)}`;
+  return s.includes('429') || s.includes('RESOURCE_EXHAUSTED') || /quota/i.test(s);
+};
+
+// 에러 메시지에서 재시도 대기 시간(초)을 추출. 없으면 0.
+const parseRetrySec = (e: unknown): number => {
+  const s = `${(e as { message?: string })?.message ?? ''} ${String(e)}`;
+  const m1 = s.match(/retry in ([\d.]+)\s*s/i);
+  if (m1) return Math.ceil(parseFloat(m1[1]));
+  const m2 = s.match(/"?retryDelay"?\s*[:=]\s*"?(\d+(?:\.\d+)?)s"?/i);
+  if (m2) return Math.ceil(parseFloat(m2[1]));
+  return 0;
+};
+
+// 429(할당량 초과) 시 자동 재시도. 최종 실패하면 친절한 한국어 메시지로 변환.
+async function generateContentWithRetry(
+  ai: GoogleGenAI,
+  params: Parameters<GoogleGenAI['models']['generateContent']>[0],
+  maxRetries = 3
+) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (e) {
+      if (isQuotaError(e) && attempt < maxRetries) {
+        const wait = (parseRetrySec(e) || 5 * (attempt + 1)) + 1;
+        console.warn(`[TTS] 할당량 제한(429). ${wait}초 후 재시도 (${attempt + 1}/${maxRetries})`);
+        await sleep(wait * 1000);
+        continue;
+      }
+      if (isQuotaError(e)) throw new Error(QUOTA_MESSAGE);
+      throw e;
+    }
+  }
+}
+
 export interface TTSOptions {
   voiceName?: string;
   model?: string;
@@ -84,7 +128,7 @@ export const synthesizeKoreanNarration = async (
 
   const processedText = convertNumerals(text);
 
-  const response = await ai.models.generateContent({
+  const response = await generateContentWithRetry(ai, {
     model,
     contents: [{ parts: [{ text: processedText }] }],
     config: {
