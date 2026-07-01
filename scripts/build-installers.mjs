@@ -124,8 +124,9 @@ Section "Install"
   File /r "${srcDir}/*"
 
   CreateDirectory "$SMPROGRAMS\\${APP_DISPLAY}"
-  CreateShortcut "$SMPROGRAMS\\${APP_DISPLAY}\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.bat" "" "$INSTDIR\\runtime\\node.exe"
-  CreateShortcut "$DESKTOP\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.bat" "" "$INSTDIR\\runtime\\node.exe"
+  ; SW_SHOWMINIMIZED: 검은 콘솔 창을 작업표시줄로 최소화한 채 실행 (초보자용)
+  CreateShortcut "$SMPROGRAMS\\${APP_DISPLAY}\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.bat" "" "$INSTDIR\\runtime\\node.exe" 0 SW_SHOWMINIMIZED
+  CreateShortcut "$DESKTOP\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.bat" "" "$INSTDIR\\runtime\\node.exe" 0 SW_SHOWMINIMIZED
 
   WriteUninstaller "$INSTDIR\\uninstall.exe"
   WriteRegStr HKCU "\${REGKEY}" "DisplayName" "${APP_DISPLAY}"
