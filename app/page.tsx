@@ -20,6 +20,26 @@ export default function Home() {
   const [scriptText, setScriptText] = useState('');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
 
+  // 사용자가 직접 올린 배경 이미지 (data URI 배열). 있으면 Pexels 대신 사용.
+  const [userImages, setUserImages] = useState<string[]>([]);
+
+  const handleImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const readAsDataUrl = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    const imgs = await Promise.all(
+      Array.from(files)
+        .filter((f) => f.type.startsWith('image/'))
+        .map(readAsDataUrl)
+    );
+    setUserImages((prev) => [...prev, ...imgs]);
+  };
+
   // Video Pipeline Status
   const [isRendering, setIsRendering] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0: Idle, 1: Structuring, 2: Fetching Media, 3: TTS, 4: Remotion Render, 5: Done
@@ -180,6 +200,7 @@ export default function Home() {
         body: JSON.stringify({
           text: scriptText,
           keys: { geminiApiKey, pexelsApiKey },
+          userImages, // 있으면 Pexels 대신 이 이미지들 사용
         }),
       });
 
@@ -322,13 +343,60 @@ export default function Home() {
                 />
               </div>
 
+              {/* 내 이미지 업로드 (선택) — 스크립트가 있어야 활성화 */}
+              <div className="form-group">
+                <label className="section-label">
+                  🖼️ 내 이미지 사용 (선택) — 올리면 Pexels 대신 이 이미지로 만듭니다
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={!scriptText.trim()}
+                  onChange={(e) => {
+                    handleImageUpload(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                <p style={{ fontSize: '13px', color: '#888', margin: '8px 0 0' }}>
+                  {!scriptText.trim()
+                    ? '먼저 위에서 대본을 작성/생성하면 업로드가 활성화됩니다.'
+                    : userImages.length === 0
+                    ? '표지 포함 5장 정도 권장합니다. (첫 장 = 표지, 나머지 = 카드 순서대로. 부족하면 반복 사용)'
+                    : `현재 ${userImages.length}장 업로드됨 — 첫 장이 표지로 쓰입니다.`}
+                </p>
+                {userImages.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {userImages.map((src, i) => (
+                      <img
+                        key={i}
+                        src={src}
+                        alt={`upload-${i}`}
+                        style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6 }}
+                      />
+                    ))}
+                    <button
+                      className="btn"
+                      onClick={() => setUserImages([])}
+                      style={{ fontSize: '12px', padding: '4px 10px' }}
+                    >
+                      모두 지우기
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
                 className="btn btn-primary"
                 onClick={createVideo}
                 disabled={isRendering || !scriptText.trim()}
                 style={{ width: '100%', padding: '16px' }}
               >
-                {isRendering ? '쇼츠 비디오 만드는 중...' : '🎬 9:16 비디오 생성 시작'}
+                {isRendering
+                  ? '쇼츠 비디오 만드는 중...'
+                  : userImages.length > 0
+                  ? `🎬 내 이미지 ${userImages.length}장으로 비디오 생성`
+                  : '🎬 9:16 비디오 생성 시작'}
               </button>
             </div>
           </div>

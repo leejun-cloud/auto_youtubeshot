@@ -20,7 +20,11 @@ const SCENE_GAP_SEC = 0.3;
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, title, keys } = await request.json();
+    const { text, title, keys, userImages } = await request.json();
+    // 사용자가 직접 올린 이미지(data URI 배열). 있으면 Pexels 대신 이걸 사용.
+    const uploadedImages: string[] = Array.isArray(userImages)
+      ? userImages.filter((u: unknown) => typeof u === 'string' && u.startsWith('data:'))
+      : [];
 
     if (!text) {
       return NextResponse.json({ error: '본문 텍스트가 필요합니다.' }, { status: 400 });
@@ -53,26 +57,44 @@ export async function POST(request: NextRequest) {
     console.log('[API] Structuring content via Gemini...');
     const structure = await structurePhotoContent(text, title, geminiApiKey);
 
-    currentRenderStatus = {
-      step: 'media',
-      progress: 20,
-      message: 'Pexels에서 테마에 맞는 고해상도 배경 이미지 매칭 중...',
-      error: null,
-    };
-    
-    const coverMedia = await fetchPhoto(structure.coverImageSearchQuery, pexelsApiKey);
-    
+    let coverMedia: { dataUri: string; mediaType: 'image' | 'video' } | null;
     const cardMediaResults: any[] = [];
-    for (let i = 0; i < structure.cards.length; i++) {
-      const card = structure.cards[i];
-      const media = await fetchPhoto(card.imageSearchQuery, pexelsApiKey);
-      cardMediaResults.push(media);
+
+    if (uploadedImages.length > 0) {
+      // 사용자가 올린 이미지 사용 (표지=0번, 카드=1번부터 순서대로, 부족하면 반복)
       currentRenderStatus = {
         step: 'media',
-        progress: 20 + Math.round(((i + 1) / structure.cards.length) * 20),
-        message: `배경 이미지 매칭 중... (카드 ${i + 1}/${structure.cards.length} 다운로드 완료)`,
+        progress: 30,
+        message: `업로드한 이미지 ${uploadedImages.length}장을 배치하는 중...`,
         error: null,
       };
+      const asMedia = (uri: string) =>
+        ({ dataUri: uri, mediaType: 'image' as const });
+      coverMedia = asMedia(uploadedImages[0]);
+      for (let i = 0; i < structure.cards.length; i++) {
+        cardMediaResults.push(asMedia(uploadedImages[(i + 1) % uploadedImages.length]));
+      }
+    } else {
+      currentRenderStatus = {
+        step: 'media',
+        progress: 20,
+        message: 'Pexels에서 테마에 맞는 고해상도 배경 이미지 매칭 중...',
+        error: null,
+      };
+
+      coverMedia = await fetchPhoto(structure.coverImageSearchQuery, pexelsApiKey);
+
+      for (let i = 0; i < structure.cards.length; i++) {
+        const card = structure.cards[i];
+        const media = await fetchPhoto(card.imageSearchQuery, pexelsApiKey);
+        cardMediaResults.push(media);
+        currentRenderStatus = {
+          step: 'media',
+          progress: 20 + Math.round(((i + 1) / structure.cards.length) * 20),
+          message: `배경 이미지 매칭 중... (카드 ${i + 1}/${structure.cards.length} 다운로드 완료)`,
+          error: null,
+        };
+      }
     }
 
     // Step 3: Fetch BGM
