@@ -15,6 +15,9 @@ jobs:
           node-version: "20"
 
       - name: Build dist-win (포터블 Node 번들 포함)
+        # 마지막 zip 단계(포터블 배포용, 설치파일과 무관)는 윈도우에 zip이 없어 실패할 수
+        # 있으나 dist-win 조립은 그 전에 끝난다. 조립 성공 여부는 다음 스텝에서 검증.
+        continue-on-error: true
         run: npm run build:win
 
       - name: 번들 npm 존재 확인
