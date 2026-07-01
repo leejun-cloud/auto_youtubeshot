@@ -27,8 +27,32 @@ const APP_NAME = 'YouTubeShots';
 const APP_DISPLAY = 'C-Type Photo Reels Generator';
 const PUBLISHER = 'YouTube Shots Creator';
 
+const NODE_VER = 'v20.13.1';   // 번들 Node 버전 (build-dist.mjs 와 동일)
+
 const sh = (cmd, opts = {}) => { console.log('».', cmd); execSync(cmd, { stdio: 'inherit', ...opts }); };
 const shOK = (cmd, opts = {}) => { console.log('».', cmd); try { execSync(cmd, { stdio: 'inherit', ...opts }); } catch (_) {} };
+
+/**
+ * 깨끗한 arm64 Node 런타임을 dest 에 설치한다.
+ * tar 로 직접 추출하므로 bin/npm→lib/node_modules/npm 심볼릭 링크와 npm 트리가 온전.
+ * (기존 cp -r 복사본은 이 부분이 유실돼 `Cannot find module '../lib/cli.js'` 발생)
+ */
+function installCleanNode(dest) {
+  const dir = `node-${NODE_VER}-darwin-arm64`;
+  const tgz = join(ROOT, `.${dir}.tar.gz`);
+  const tmp = join(ROOT, `.${dir}`);
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+  if (!existsSync(tgz)) {
+    sh(`curl -L -o "${tgz}" "https://nodejs.org/dist/${NODE_VER}/${dir}.tar.gz"`);
+  }
+  sh(`tar -xzf "${tgz}" -C "${tmp}" --strip-components=1`);
+  rmSync(dest, { recursive: true, force: true });
+  sh(`mv "${tmp}" "${dest}"`);
+  // 검증: npm 실체 파일이 있어야 함
+  const npmCli = join(dest, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (!existsSync(npmCli)) throw new Error('번들 Node 에 npm 이 없습니다: ' + npmCli);
+}
 
 // ────────────────────────────────────────────────────────────── Windows (NSIS)
 function buildWindows() {
@@ -122,8 +146,12 @@ function buildMac() {
   mkdirSync(MACOS, { recursive: true });
   mkdirSync(PAYLOAD, { recursive: true });
 
-  // 페이로드 = dist-mac 내용에서 기존 (비자체포함) PhotoReels.app 만 제외
-  sh(`rsync -a --exclude 'PhotoReels.app' "${DIST_MAC}/" "${PAYLOAD}/"`);
+  // 페이로드 = dist-mac 소스만. runtime 은 아래에서 "깨끗한" node 로 새로 넣는다.
+  // (기존 build-dist 의 cp 복사본은 lib/node_modules/npm 이 유실돼 npm 이 깨짐)
+  sh(`rsync -a --exclude 'PhotoReels.app' --exclude 'runtime' "${DIST_MAC}/" "${PAYLOAD}/"`);
+
+  // 깨끗한 arm64 Node 런타임을 tar 로 직접 추출 → 심볼릭 링크와 npm 트리 온전히 보존
+  installCleanNode(join(PAYLOAD, 'runtime'));
 
   // Info.plist
   writeFileSync(join(APP, 'Contents', 'Info.plist'), infoPlist(), 'utf8');

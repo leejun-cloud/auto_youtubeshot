@@ -1,6 +1,6 @@
 {
   "name": "youtube-shots",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "C형 포토 카드뉴스 자동 생성기 (유튜브 쇼츠 & 인스타 릴스)",
   "private": true,
   "scripts": {
