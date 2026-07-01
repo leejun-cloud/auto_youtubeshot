@@ -29,12 +29,14 @@ jobs:
           }
           Write-Host "OK: 번들 npm 존재"
 
-      - name: 실제 start.exe 실행 → launcher 경로로 npm install 검증
+      - name: 실제 실행 경로(start.bat = node + launcher.cjs) 로 npm install 검증
         shell: pwsh
         run: |
-          $exe = "dist-win\start.exe"
+          # 설치본과 동일한 방식: 번들 node 로 launcher.cjs 직접 실행 (pkg start.exe 미사용)
+          $node = "dist-win\runtime\node.exe"
           $out = "start-out.txt"
-          $p = Start-Process -FilePath $exe -WorkingDirectory "dist-win" -PassThru `
+          $p = Start-Process -FilePath $node -ArgumentList "scripts\launcher.cjs" `
+                 -WorkingDirectory "dist-win" -PassThru `
                  -RedirectStandardOutput $out -RedirectStandardError "start-err.txt"
           $ok = $false
           for ($i = 0; $i -lt 60; $i++) {

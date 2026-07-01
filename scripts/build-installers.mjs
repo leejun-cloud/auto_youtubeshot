@@ -65,14 +65,35 @@ function buildWindows() {
   }
   mkdirSync(OUT, { recursive: true });
 
+  // start.exe(pkg 바이너리)는 백신 오탐/파일잠금 문제가 잦다. 이를 빼고
+  // 번들 node 로 launcher.cjs 를 실행하는 start.bat 로 대체한다.
+  const stage = join(ROOT, '.win-stage');
+  rmSync(stage, { recursive: true, force: true });
+  mkdirSync(stage, { recursive: true });
+  sh(`rsync -a --exclude 'start.exe' "${DIST}/" "${stage}/"`);
+  writeFileSync(join(stage, 'start.bat'), winStartBat(), 'utf8');
+
   const nsi = join(ROOT, 'installer.nsi');
-  writeFileSync(nsi, nsisScript(DIST), 'utf8');
+  writeFileSync(nsi, nsisScript(stage), 'utf8');
   sh(`makensis "${nsi}"`, { cwd: ROOT });
+  rmSync(stage, { recursive: true, force: true });
 
   const exe = join(OUT, `${APP_NAME}-Setup-${VERSION}.exe`);
   if (!existsSync(exe)) throw new Error('Setup.exe 생성 실패');
   rmSync(nsi, { force: true });
   console.log(`\n✅ Windows 설치파일: ${exe}`);
+}
+
+// start.exe(pkg) 대체용 배치 런처: 번들 node 로 launcher.cjs 직접 실행.
+function winStartBat() {
+  return [
+    '@echo off',
+    'chcp 65001 >nul 2>&1',
+    'title C-Type Photo Reels Generator',
+    'cd /d "%~dp0"',
+    '"%~dp0runtime\\node.exe" "%~dp0scripts\\launcher.cjs"',
+    '',
+  ].join('\r\n');
 }
 
 function nsisScript(srcDir) {
@@ -103,14 +124,14 @@ Section "Install"
   File /r "${srcDir}/*"
 
   CreateDirectory "$SMPROGRAMS\\${APP_DISPLAY}"
-  CreateShortcut "$SMPROGRAMS\\${APP_DISPLAY}\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.exe"
-  CreateShortcut "$DESKTOP\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.exe"
+  CreateShortcut "$SMPROGRAMS\\${APP_DISPLAY}\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.bat" "" "$INSTDIR\\runtime\\node.exe"
+  CreateShortcut "$DESKTOP\\${APP_DISPLAY}.lnk" "$INSTDIR\\start.bat" "" "$INSTDIR\\runtime\\node.exe"
 
   WriteUninstaller "$INSTDIR\\uninstall.exe"
   WriteRegStr HKCU "\${REGKEY}" "DisplayName" "${APP_DISPLAY}"
   WriteRegStr HKCU "\${REGKEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "\${REGKEY}" "Publisher" "${PUBLISHER}"
-  WriteRegStr HKCU "\${REGKEY}" "DisplayIcon" "$INSTDIR\\start.exe"
+  WriteRegStr HKCU "\${REGKEY}" "DisplayIcon" "$INSTDIR\\runtime\\node.exe"
   WriteRegStr HKCU "\${REGKEY}" "UninstallString" "$INSTDIR\\uninstall.exe"
   WriteRegStr HKCU "\${REGKEY}" "InstallLocation" "$INSTDIR"
   WriteRegDWORD HKCU "\${REGKEY}" "NoModify" 1
