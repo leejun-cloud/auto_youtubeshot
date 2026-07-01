@@ -85,6 +85,7 @@ process.on('unhandledRejection', (error) => {
 const RUNTIME  = path.join(ROOT, 'runtime');
 const NODE_EXE = path.join(RUNTIME, 'node.exe');
 const NPM_CMD  = path.join(RUNTIME, 'npm.cmd');
+const NPM_CLI  = path.join(RUNTIME, 'node_modules', 'npm', 'bin', 'npm-cli.js');
 
 // ── Port helpers ──────────────────────────────────────────────────────────────
 const isPortFree = (port) => new Promise((resolve) => {
@@ -135,8 +136,9 @@ async function main() {
     npm_config_update_notifier: 'false',
   };
 
-  const npmCommand = `"${NPM_CMD}" install --no-audit --no-fund`;
-  const install = spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', npmCommand], {
+  // cmd.exe 로 "npm.cmd" 를 호출하면 Node 의 인자 재-이스케이프로 따옴표가 깨져
+  // 'npm.cmd is not recognized' 오류가 난다. node.exe 로 npm-cli.js 를 직접 실행한다.
+  const install = spawnSync(NODE_EXE, [NPM_CLI, 'install', '--no-audit', '--no-fund'], {
     cwd:   ROOT,
     stdio: 'inherit',
     shell: false,

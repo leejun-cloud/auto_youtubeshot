@@ -29,14 +29,24 @@ jobs:
           }
           Write-Host "OK: 번들 npm 존재"
 
-      - name: 번들 Node 로 실제 npm install (핵심 실패지점 재현)
+      - name: 실제 start.exe 실행 → launcher 경로로 npm install 검증
         shell: pwsh
-        working-directory: dist-win
         run: |
-          $env:PATH = "$PWD\runtime;$env:PATH"
-          & "$PWD\runtime\node.exe" --version
-          & "$PWD\runtime\npm.cmd" --version
-          & "$PWD\runtime\npm.cmd" install --no-audit --no-fund
+          $exe = "dist-win\start.exe"
+          $out = "start-out.txt"
+          $p = Start-Process -FilePath $exe -WorkingDirectory "dist-win" -PassThru `
+                 -RedirectStandardOutput $out -RedirectStandardError "start-err.txt"
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 5
+            if ((Test-Path $out) -and (Select-String -Path $out -Pattern 'Dependencies ready|Starting server' -Quiet)) { $ok = $true; break }
+            if ((Test-Path $out) -and (Select-String -Path $out -Pattern 'npm install failed|is not recognized|배치 파일이 아닙니다' -Quiet)) { break }
+          }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Write-Host "----- start.exe 출력(마지막 40줄) -----"
+          if (Test-Path $out) { Get-Content $out -Tail 40 }
+          if (-not $ok) { throw "launcher 가 npm install 를 통과하지 못했습니다" }
+          Write-Host "OK: start.exe → npm install 통과 (launcher 정상)"
 
       - name: Next.js 설치 확인
         shell: pwsh
