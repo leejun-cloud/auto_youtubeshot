@@ -182,15 +182,16 @@ async function main() {
     fail(`\n[ERROR] Failed to start server: ${e.message}`);
   });
 
-  // Open browser after Next.js warms up
+  // Open browser after Next.js warms up.
+  // explorer.exe <url> 는 기본 브라우저를 열며 cmd 따옴표 문제가 없다.
   setTimeout(() => {
     console.log(`\n[INFO] Opening browser: ${url}`);
-    spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `start "" "${url}"`], {
-      shell:    false,
-      detached: true,
-      stdio:    'ignore',
-    }).unref();
-  }, 5000);
+    try {
+      spawn('explorer.exe', [url], { detached: true, stdio: 'ignore' }).unref();
+    } catch (_) {
+      console.log(`      자동으로 안 열리면 브라우저에서 ${url} 로 접속하세요.`);
+    }
+  }, 8000);
 
   server.on('close', (code) => {
     console.log(`\n[INFO] Server stopped (exit code: ${code ?? 0})`);
