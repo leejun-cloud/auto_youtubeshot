@@ -23,21 +23,48 @@ export default function Home() {
   // 사용자가 직접 올린 배경 이미지 (data URI 배열). 있으면 Pexels 대신 사용.
   const [userImages, setUserImages] = useState<string[]>([]);
 
+  // 원본 사진(수 MB)을 그대로 base64로 보내면 서버 연결이 끊겨(Failed to fetch) 실패한다.
+  // 업로드 시 캔버스로 최대 1920px, JPEG로 압축해 수백 KB로 줄인다. (9:16 배경엔 충분)
+  const downscaleImage = (file: File, maxDim = 1920, quality = 0.85) =>
+    new Promise<string>((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        const longest = Math.max(width, height);
+        if (longest > maxDim) {
+          const s = maxDim / longest;
+          width = Math.round(width * s);
+          height = Math.round(height * s);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('이 브라우저는 이미지 처리를 지원하지 않습니다.'));
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('이미지를 읽을 수 없습니다.'));
+      };
+      img.src = url;
+    });
+
   const handleImageUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const readAsDataUrl = (file: File) =>
-      new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    const imgs = await Promise.all(
-      Array.from(files)
-        .filter((f) => f.type.startsWith('image/'))
-        .map(readAsDataUrl)
-    );
-    setUserImages((prev) => [...prev, ...imgs]);
+    try {
+      const imgs = await Promise.all(
+        Array.from(files)
+          .filter((f) => f.type.startsWith('image/'))
+          .map((f) => downscaleImage(f))
+      );
+      setUserImages((prev) => [...prev, ...imgs]);
+    } catch (e: any) {
+      alert('이미지 처리 중 오류: ' + (e?.message || e));
+    }
   };
 
   const moveImage = (index: number, dir: -1 | 1) => {
