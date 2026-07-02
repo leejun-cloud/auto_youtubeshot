@@ -3,6 +3,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { getFfmpegPath, getFfprobePath } from './ffmpeg-binaries';
+import { resolveBrowserExecutable } from './browser';
 
 // Configure Remotion to use ffmpeg-static and ffprobe-static
 process.env.REMOTION_FFMPEG_PATH = getFfmpegPath();
@@ -20,10 +21,9 @@ let cachedServeUrl: string | null = null;
 
 export const getRemotionBundle = async (forceRefresh = false): Promise<string> => {
   if (cachedServeUrl && !forceRefresh) return cachedServeUrl;
-  
-  // Verify or download browser if needed (Remotion does this automatically, but let's make sure entryPoint exists)
+
   const entryPoint = path.join(process.cwd(), 'remotion', 'index.ts');
-  
+
   cachedServeUrl = await bundle({
     entryPoint,
     webpackOverride: (config) => config,
@@ -72,6 +72,18 @@ export const renderReel = async (options: RenderOptions): Promise<RenderResult> 
   const fileName = options.outputFileName || `reel-${template}-${Date.now()}.mp4`;
   const localPath = path.join(outDir, fileName);
 
+  // ★ 렌더 전에 브라우저를 명시적으로 확보 (시스템 Chrome/Edge 우선, 없으면 다운로드).
+  //   기존에는 renderMedia 내부에서 몰래 다운로드하다 10분 타임아웃으로 죽었음.
+  let browserExecutable: string | null;
+  try {
+    browserExecutable = await resolveBrowserExecutable();
+  } catch (e) {
+    throw new Error(
+      '렌더링용 브라우저 준비 실패: ' + (e instanceof Error ? e.message : String(e)) +
+      '\n해결 방법: (1) Chrome 브라우저를 설치하거나 (2) 인터넷/방화벽 상태를 확인한 뒤 다시 시도하세요.'
+    );
+  }
+
   const serveUrl = await getRemotionBundle(options.forceRebundle ?? false);
 
   const composition = await selectComposition({
@@ -79,6 +91,8 @@ export const renderReel = async (options: RenderOptions): Promise<RenderResult> 
     id: compositionId,
     inputProps: data,
     chromiumOptions: {},
+    browserExecutable,
+    timeoutInMilliseconds: TOTAL_TIMEOUT_MS,
   });
 
   await renderMedia({
@@ -87,6 +101,7 @@ export const renderReel = async (options: RenderOptions): Promise<RenderResult> 
     codec: 'h264',
     outputLocation: localPath,
     inputProps: data,
+    browserExecutable,
     ...baseRenderOptions,
     onProgress: onProgress
       ? ({ progress }) => {

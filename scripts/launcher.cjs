@@ -164,6 +164,27 @@ async function main() {
     );
   }
 
+  // [2.5] Warmup — 렌더링용 헤드리스 브라우저 사전 확보
+  // (시스템 Chrome/Edge가 있으면 다운로드 생략. 없으면 여기서 미리 다운로드해
+  //  렌더 도중 "Timed out while setting up the headless browser" 재발 방지)
+  const WARMUP = path.join(ROOT, 'scripts', 'warmup.mjs');
+  if (fs.existsSync(WARMUP)) {
+    console.log('[1.5/2] Preparing render browser (first run may download ~150MB)...');
+    const warmup = spawnSync(NODE_EXE, [WARMUP], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      shell: false,
+      env,
+    });
+    if (warmup.status !== 0) {
+      fail(
+        '\n[ERROR] Render browser setup failed.',
+        '  - Chrome 브라우저를 설치하거나, 인터넷/방화벽 상태를 확인한 뒤 다시 실행하세요.'
+      );
+    }
+    console.log('\n[OK] Render browser ready!\n');
+  }
+
   // [3] Find free port & start server
   const port = await findFreePort(3000);
   const url  = `http://localhost:${port}`;

@@ -57,6 +57,18 @@ echo.
 echo Dependencies installed successfully!
 echo.
 
+:: ── [2.5/3] Warmup: render browser (prevents headless-browser timeout) ──
+echo [2.5/3] Preparing render browser (first run may download ~150MB)...
+call node scripts\warmup.mjs
+if %ERRORLEVEL% neq 0 (
+  echo.
+  echo [ERROR] Render browser setup failed.
+  echo   - Install Chrome, or check your internet/firewall, then run again.
+  pause
+  exit /b 1
+)
+echo.
+
 :: ── [3/3] Start app server ───────────────────────────────────
 echo [3/3] Starting App Server...
 echo       Browser will open automatically. Do NOT close this window.

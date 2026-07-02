@@ -70,6 +70,19 @@ if [ ! -f "$NEXT_BIN" ]; then
   exit 1
 fi
 
+# ── 렌더링용 브라우저 사전 확보 (타임아웃 재발 방지) ──────────────────────────
+if [ -f "$ROOT/scripts/warmup.mjs" ]; then
+  echo "[1.5/2] Preparing render browser..."
+  "$NODE" "$ROOT/scripts/warmup.mjs"
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "[ERROR] Render browser setup failed."
+    echo "        Chrome을 설치하거나 인터넷/방화벽을 확인 후 다시 실행하세요."
+    exit 1
+  fi
+  echo ""
+fi
+
 # ── 빈 포트 찾기 ──────────────────────────────────────────────────────────────
 PORT=3000
 while lsof -i:"$PORT" > /dev/null 2>&1; do

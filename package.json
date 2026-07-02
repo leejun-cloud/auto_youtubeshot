@@ -1,6 +1,6 @@
 {
   "name": "youtube-shots",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "C형 포토 카드뉴스 자동 생성기 (유튜브 쇼츠 & 인스타 릴스)",
   "private": true,
   "scripts": {
@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "start-app": "node scripts/start-app.mjs",
+    "warmup": "node scripts/warmup.mjs",
     "remotion": "remotion studio remotion/index.ts",
     "build:win": "node scripts/build-dist.mjs win",
     "build:mac": "node scripts/build-dist.mjs mac",
